@@ -20,12 +20,12 @@ batch_size = 128
 max=0
 device = torch.device('cuda')
 device2=torch.device('cpu')
-# 设置numpy随机种子
+
 seed=42
 np.random.seed(seed)
-# 设置Python内置随机数生成器的种子
+
 random.seed(seed)
-# 设置PyTorch的随机种子
+
 torch.manual_seed(seed)
 torch.cuda.manual_seed(seed)
 torch.backends.cudnn.deterministic = True
@@ -53,7 +53,7 @@ def update_teacher_variables(model, teacher_model, alpha, global_step):
     for teacher_param, param in zip(teacher_model.parameters(), model.parameters()):
         teacher_param.data.mul_(alpha).add_(1 - alpha, param.data)
 
-# 自定义数据增强函数
+
 def add_gaussian_noise(image_array, mean=0.0, var=30):
     std = var**0.5
     noisy_img = image_array + np.random.normal(mean, std, image_array.shape)
@@ -96,8 +96,7 @@ class CustomDataset(Dataset):
         
         return image, decoder_label,idx
 
-# 定义数据转换
-# 新增数据增强的transform
+
 train_transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.RandomHorizontalFlip(),
@@ -120,49 +119,48 @@ test_transform = transforms.Compose([
                                  std=[0.229, 0.224, 0.225])
 ])
 
-# 损失函数部分
 
 
-# 读取标签的 Excel 表格
+
 file_path = 'train_labels.csv'
 labels_df = pd.read_csv(file_path)
 
-# 读取图像文件路径
+
 image_folder_path = 'train'
 file_paths = [os.path.join(image_folder_path, filename) for filename in os.listdir(image_folder_path)]
 labels = labels_df['label'].astype(int).tolist()  # 假设标签列名为 'Label'
 with open('noise02.txt', 'r') as file:
-    # 逐行读取文件内容并去除换行符
+ 
     lines = file.readlines()
 
-# 初始化空列表用于存储第二列数据
+
 n_labels = []
 
-# 遍历每一行
+
 for line in lines:
-    # 使用空格分割每一行，取第二列数据（索引为1），并转换为整数类型后添加到列表中
+    
     n_labels.append(int(line.split()[1]))
 
 
-# 创建自定义数据集
+
 train_dataset = CustomDataset(phase='train',file_paths=file_paths, labels=labels, transform=train_transform)
 
-# 创建数据加载器
+
 
 train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
 file_path = 'test_labels.csv'
 t_labels_df = pd.read_csv(file_path)
 
-# 读取测试集图像文件路径
+
 test_image_folder_path = 'test'
 test_file_paths = [os.path.join(test_image_folder_path, filename) for filename in os.listdir(test_image_folder_path)]
 test_labels = t_labels_df['label'].tolist()  # 假设测试集标签列名为 'Label'
 
-# 创建测试集自定义数据集
+
 test_dataset = CustomDataset(phase='test',file_paths=test_file_paths, labels=test_labels, transform=test_transform)
 
-# 创建测试集数据加载器
+
 test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
 
@@ -195,14 +193,14 @@ class res18(nn.Module):
         # 获取卷积部分的特征输出
         x = self.features(x)
         
-        #### 1, 2048, 7, 7
+        #### 1, 512, 7, 7
         feature = self.features2(x)
         
-        #### 1, 2048, 1, 1
+        #### 1, 512, 1, 1
         # 接下来的代码可以保持不变，如果需要，你可以在这里添加进一步的处理
         feature = feature.view(feature.size(0), -1)
 
-        #这里补上从self.fc中提取参数
+        
         params = list(self.parameters())
         fc_weights = params[-2].data
         fc_weights = fc_weights.view(1, 7, 512, 1, 1)
@@ -227,12 +225,12 @@ model.to(device)
 teacher.to(device)
 for param in teacher.parameters():
     param.requires_grad = False
-num_epochs =40# 定义迭代次数
+num_epochs =60
 learning_rate = 1e-3 # 学习率
 optimizer =torch.optim.Adam(model.parameters(), lr=learning_rate)# 定义优化器
 scheduler =  torch.optim.lr_scheduler.StepLR(optimizer=optimizer,step_size=10,gamma=0.1)
 total_step = len(train_loader)
-max=0.9041
+max=0.9054
 global_step=0
 for epoch in range(num_epochs):
     total_loss = 0
@@ -241,7 +239,7 @@ for epoch in range(num_epochs):
     for images,labels,indexes in train_loader:
         flipped_images = hflip(images)
         images, labels, indexes,flipped_images = images.to(device), labels.to(device), indexes.to(device) ,flipped_images.to(device)
-        optimizer.zero_grad() # 清空上一个batch的梯度信息
+        optimizer.zero_grad() 
         
         outputs,h1=model(images)
         _,h2=model(flipped_images)
@@ -250,7 +248,7 @@ for epoch in range(num_epochs):
         b_z = outputs.size(0)
         labels=torch.tensor(labels,requires_grad=False)
         f_outputs=F.softmax(ag1,dim=1)
-        # 对模型输出进行softmax操作
+  
         or_outputs=torch.nn.functional.softmax(outputs, dim=1)
         
         ce_loss=-torch.sum(labels*torch.log(or_outputs))/b_z
@@ -272,9 +270,8 @@ for epoch in range(num_epochs):
     average_loss = total_loss / len(train_loader)
     scheduler.step()
     print(f'Epoch [{epoch+1}/{40}], Loss: {average_loss}')  
-        # 在每个迭代之后调用 scheduler.step() 来更新学习率
     model.eval()
-    with torch.no_grad(): # 进行评测的时候网络不更新梯度
+    with torch.no_grad(): 
         correct = 0
         total = 0
         for images, labels,_ in test_loader:
@@ -282,7 +279,7 @@ for epoch in range(num_epochs):
             out= model(images)    
             _, predicted = torch.max(out.data, 1)
             total += labels.size(0)
-            _, labels = torch.max(labels, 1)  # 将独热编码转换
+            _, labels = torch.max(labels, 1)
             correct += (predicted == labels).sum().item()   
         print('accuarcy: {} %'.format(100 * correct/total))
         
