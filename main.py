@@ -281,7 +281,7 @@ for epoch in range(num_epochs):
             total += labels.size(0)
             _, labels = torch.max(labels, 1)
             correct += (predicted == labels).sum().item()   
-        print('accuarcy: {} %'.format(100 * correct/total))
+        print('test accuracy: {} %'.format(100 * correct/total))
         
        
     model.train()
