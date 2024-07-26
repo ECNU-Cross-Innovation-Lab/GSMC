@@ -276,7 +276,7 @@ for epoch in range(num_epochs):
         total = 0
         for images, labels,_ in test_loader:
             images, labels = images.to(device), labels.to(device)
-            out= model(images)    
+            out,_= model(images)    
             _, predicted = torch.max(out.data, 1)
             total += labels.size(0)
             _, labels = torch.max(labels, 1)
